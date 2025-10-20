@@ -3,42 +3,266 @@
 {% block title %}Local Popularity Map{% endblock %}
 
 {% block content %}
-<div class="container mt-4">
-    <h1 class="mb-4">Local Popularity Map</h1>
-    <p class="lead">Discover which movies are trending in different regions</p>
+<!-- Custom CSS for the trending map -->
+<style>
+    .trending-map-container {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+        padding: 2rem 0;
+    }
     
-    <!-- Region Selection -->
-    <div class="row mb-4">
-        <div class="col-md-6">
-            <label for="regionSelect" class="form-label">Select Your Region:</label>
-            <select class="form-select" id="regionSelect">
-                <option value="">Choose a region...</option>
-                {% for region in regions %}
-                <option value="{{ region.id }}" data-lat="{{ region.latitude }}" data-lng="{{ region.longitude }}">
-                    {{ region.name }} ({{ region.code }})
-                </option>
-                {% endfor %}
-            </select>
-        </div>
-        <div class="col-md-6">
-            <button class="btn btn-primary" id="setRegionBtn" disabled>Set My Region</button>
-        </div>
-    </div>
+    .map-card {
+        background: white;
+        border-radius: 15px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        overflow: hidden;
+    }
     
-    <!-- Map Container -->
-    <div class="row">
-        <div class="col-md-8">
-            <div id="trendingMap" style="height: 500px; border: 1px solid #ddd; border-radius: 8px;"></div>
-        </div>
-        <div class="col-md-4">
-            <div id="regionDetails" class="card" style="display: none;">
-                <div class="card-header">
-                    <h5 class="card-title mb-0">Region Details</h5>
+    .map-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 2rem;
+        text-align: center;
+    }
+    
+    .map-header h1 {
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+    }
+    
+    .map-header p {
+        opacity: 0.9;
+        font-size: 1.1rem;
+    }
+    
+    .region-selector {
+        background: white;
+        padding: 1.5rem;
+        border-bottom: 1px solid #eee;
+    }
+    
+    .map-container {
+        position: relative;
+        height: 600px;
+    }
+    
+    #trendingMap {
+        height: 100%;
+        width: 100%;
+        border-radius: 0 0 15px 15px;
+    }
+    
+    .region-details {
+        background: white;
+        border-radius: 15px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        height: 600px;
+        overflow-y: auto;
+    }
+    
+    .region-info {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 1.5rem;
+        border-radius: 15px 15px 0 0;
+    }
+    
+    .trending-movie-card {
+        border: none;
+        border-radius: 10px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        margin-bottom: 1rem;
+        transition: transform 0.2s ease;
+    }
+    
+    .trending-movie-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+    }
+    
+    .movie-poster {
+        width: 60px;
+        height: 80px;
+        object-fit: cover;
+        border-radius: 8px;
+    }
+    
+    .trending-score {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 0.25rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: 600;
+    }
+    
+    .region-marker {
+        background: #667eea;
+        color: white;
+        border-radius: 50%;
+        width: 30px;
+        height: 30px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        font-size: 0.8rem;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+    }
+    
+    .loading-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(255,255,255,0.9);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+        border-radius: 0 0 15px 15px;
+    }
+    
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1rem;
+        margin-bottom: 1rem;
+    }
+    
+    .stat-item {
+        text-align: center;
+        padding: 1rem;
+        background: #f8f9fa;
+        border-radius: 10px;
+    }
+    
+    .stat-number {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: #667eea;
+    }
+    
+    .stat-label {
+        font-size: 0.9rem;
+        color: #6c757d;
+        margin-top: 0.25rem;
+    }
+    
+    @media (max-width: 768px) {
+        .map-container {
+            height: 400px;
+        }
+        
+        .region-details {
+            height: auto;
+            margin-top: 1rem;
+        }
+        
+        .stats-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+    
+    /* Toast notifications */
+    .toast-container {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        z-index: 1050;
+    }
+    
+    .toast {
+        background: white;
+        border-radius: 10px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+        border: none;
+        margin-bottom: 10px;
+    }
+    
+    .toast-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+        border-radius: 10px 10px 0 0;
+    }
+    
+    .toast-success .toast-header {
+        background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+    }
+    
+    .toast-error .toast-header {
+        background: linear-gradient(135deg, #dc3545 0%, #fd7e14 100%);
+    }
+</style>
+
+<div class="trending-map-container">
+    <div class="container">
+        <!-- Header -->
+        <div class="map-card mb-4">
+            <div class="map-header">
+                <h1><i class="fas fa-map-marked-alt me-3"></i>Local Popularity Map</h1>
+                <p>Discover which movies are trending in different regions around the world</p>
+            </div>
+            
+            <!-- Region Selection -->
+            <div class="region-selector">
+                <div class="row align-items-end">
+                    <div class="col-md-6">
+                        <label for="regionSelect" class="form-label fw-bold">
+                            <i class="fas fa-globe-americas me-2"></i>Select Your Region:
+                        </label>
+                        <select class="form-select form-select-lg" id="regionSelect">
+                            <option value="">Choose a region to see trending movies...</option>
+                            {% for region in regions %}
+                            <option value="{{ region.id }}" data-lat="{{ region.latitude }}" data-lng="{{ region.longitude }}">
+                                {{ region.name }} ({{ region.code }}) - Population: {{ region.population|floatformat:0 }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <button class="btn btn-primary btn-lg w-100" id="setRegionBtn" disabled>
+                            <i class="fas fa-map-pin me-2"></i>Set My Region
+                        </button>
+                    </div>
+                    <div class="col-md-3">
+                        <button class="btn btn-outline-secondary btn-lg w-100" id="refreshDataBtn">
+                            <i class="fas fa-sync-alt me-2"></i>Refresh Data
+                        </button>
+                    </div>
                 </div>
-                <div class="card-body">
-                    <div id="regionInfo"></div>
-                    <div id="trendingMovies" class="mt-3">
-                        <h6>Trending Movies:</h6>
+            </div>
+        </div>
+        
+        <!-- Map and Details -->
+        <div class="row">
+            <div class="col-lg-8">
+                <div class="map-card">
+                    <div class="map-container">
+                        <div id="trendingMap"></div>
+                        <div id="loadingOverlay" class="loading-overlay" style="display: none;">
+                            <div class="text-center">
+                                <div class="spinner-border text-primary" role="status">
+                                    <span class="visually-hidden">Loading...</span>
+                                </div>
+                                <p class="mt-2 mb-0">Loading trending data...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-4">
+                <div class="region-details" id="regionDetails" style="display: none;">
+                    <div class="region-info">
+                        <h5 class="mb-2" id="regionName">Region Name</h5>
+                        <p class="mb-0" id="regionStats">Loading statistics...</p>
+                    </div>
+                    <div class="p-3">
+                        <h6 class="mb-3">
+                            <i class="fas fa-fire me-2 text-danger"></i>Trending Movies
+                        </h6>
                         <div id="moviesList"></div>
                     </div>
                 </div>
@@ -47,33 +271,210 @@
     </div>
 </div>
 
-<!-- Loading Spinner -->
-<div id="loadingSpinner" class="text-center mt-4" style="display: none;">
-    <div class="spinner-border" role="status">
-        <span class="visually-hidden">Loading...</span>
-    </div>
-    <p class="mt-2">Loading trending data...</p>
-</div>
+<!-- Toast Container -->
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- Leaflet CSS -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+<!-- Leaflet JavaScript -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
 <script>
-// Basic map functionality (Person 2 will implement the full map)
 document.addEventListener('DOMContentLoaded', function() {
+    // DOM elements
     const regionSelect = document.getElementById('regionSelect');
     const setRegionBtn = document.getElementById('setRegionBtn');
     const regionDetails = document.getElementById('regionDetails');
-    const regionInfo = document.getElementById('regionInfo');
+    const regionName = document.getElementById('regionName');
+    const regionStats = document.getElementById('regionStats');
     const moviesList = document.getElementById('moviesList');
-    const loadingSpinner = document.getElementById('loadingSpinner');
+    const loadingOverlay = document.getElementById('loadingOverlay');
     
-    // Enable set region button when selection changes
+    // Map variables
+    let map;
+    let regionMarkers = [];
+    let currentRegionData = {};
+    
+    // Initialize map
+    function initMap() {
+        map = L.map('trendingMap').setView([39.8283, -98.5795], 4); // Center on US
+        
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+        
+        // Load initial trending data
+        loadAllTrendingData();
+    }
+    
+    // Load trending data for all regions
+    function loadAllTrendingData() {
+        showLoading(true);
+        
+        fetch('/geographic/api/trending-data/')
+        .then(response => response.json())
+        .then(data => {
+            showLoading(false);
+            
+            if (data.success) {
+                currentRegionData = data.data;
+                displayAllRegionsOnMap(data.data);
+            } else {
+                console.error('Error loading trending data:', data.error);
+                showError('Failed to load trending data');
+            }
+        })
+        .catch(error => {
+            showLoading(false);
+            console.error('Error:', error);
+            showError('Failed to load trending data');
+        });
+    }
+    
+    // Display all regions on map with markers
+    function displayAllRegionsOnMap(regionsData) {
+        // Clear existing markers
+        regionMarkers.forEach(marker => map.removeLayer(marker));
+        regionMarkers = [];
+        
+        Object.values(regionsData).forEach(regionData => {
+            const region = regionData.region;
+            const trendingMovies = regionData.trending_movies;
+            
+            // Create custom marker icon
+            const markerIcon = L.divIcon({
+                className: 'region-marker',
+                html: `<div class="region-marker">${trendingMovies.length}</div>`,
+                iconSize: [30, 30],
+                iconAnchor: [15, 15]
+            });
+            
+            // Create marker
+            const marker = L.marker([region.latitude, region.longitude], {
+                icon: markerIcon
+            }).addTo(map);
+            
+            // Add popup with region info
+            const popupContent = `
+                <div class="text-center">
+                    <h6 class="mb-2">${region.name}</h6>
+                    <p class="mb-2 text-muted">${region.code}</p>
+                    <p class="mb-2"><strong>${trendingMovies.length}</strong> trending movies</p>
+                    <button class="btn btn-primary btn-sm" onclick="selectRegion(${region.id})">
+                        View Details
+                    </button>
+                </div>
+            `;
+            
+            marker.bindPopup(popupContent);
+            
+            // Add click handler
+            marker.on('click', function() {
+                selectRegion(region.id);
+            });
+            
+            regionMarkers.push(marker);
+        });
+    }
+    
+    // Select region from map or dropdown
+    window.selectRegion = function(regionId) {
+        const regionData = currentRegionData[regionId];
+        if (!regionData) return;
+        
+        const region = regionData.region;
+        const trendingMovies = regionData.trending_movies;
+        
+        // Update dropdown selection
+        regionSelect.value = regionId;
+        setRegionBtn.disabled = false;
+        
+        // Display region details
+        displayRegionDetails(region, trendingMovies);
+        
+        // Center map on region
+        map.setView([region.latitude, region.longitude], 6);
+    };
+    
+    // Display region details and trending movies
+    function displayRegionDetails(region, movies) {
+        regionName.textContent = region.name;
+        regionStats.innerHTML = `
+            <div class="stats-grid">
+                <div class="stat-item">
+                    <div class="stat-number">${movies.length}</div>
+                    <div class="stat-label">Trending Movies</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-number">${region.population.toLocaleString()}</div>
+                    <div class="stat-label">Population</div>
+                </div>
+            </div>
+        `;
+        
+        if (movies.length > 0) {
+            moviesList.innerHTML = movies.map((movie, index) => `
+                <div class="trending-movie-card">
+                    <div class="card-body p-3">
+                        <div class="d-flex align-items-start">
+                            <div class="me-3">
+                                ${movie.image ? 
+                                    `<img src="${movie.image}" class="movie-poster" alt="${movie.name}">` :
+                                    `<div class="movie-poster bg-light d-flex align-items-center justify-content-center">
+                                        <i class="fas fa-film text-muted"></i>
+                                    </div>`
+                                }
+                            </div>
+                            <div class="flex-grow-1">
+                                <div class="d-flex justify-content-between align-items-start mb-2">
+                                    <h6 class="card-title mb-0">${movie.name}</h6>
+                                    <span class="trending-score">#${index + 1}</span>
+                                </div>
+                                <p class="card-text small text-muted mb-2">
+                                    <i class="fas fa-shopping-cart me-1"></i>
+                                    ${movie.purchase_count} purchases
+                                </p>
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <span class="fw-bold text-primary">$${movie.price}</span>
+                                    <small class="text-muted">
+                                        Score: ${movie.trending_score.toFixed(1)}
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        } else {
+            moviesList.innerHTML = `
+                <div class="text-center py-4">
+                    <i class="fas fa-film fa-3x text-muted mb-3"></i>
+                    <p class="text-muted">No trending movies found for this region.</p>
+                </div>
+            `;
+        }
+        
+        regionDetails.style.display = 'block';
+    }
+    
+    // Event listeners
     regionSelect.addEventListener('change', function() {
         setRegionBtn.disabled = !this.value;
+        if (this.value) {
+            selectRegion(parseInt(this.value));
+        }
     });
     
-    // Set user region
+    document.getElementById('refreshDataBtn').addEventListener('click', function() {
+        loadAllTrendingData();
+    });
+    
     setRegionBtn.addEventListener('click', function() {
         const regionId = regionSelect.value;
         if (!regionId) return;
+        
+        showLoading(true);
         
         fetch('/geographic/api/set-user-region/', {
             method: 'POST',
@@ -85,72 +486,69 @@ document.addEventListener('DOMContentLoaded', function() {
         })
         .then(response => response.json())
         .then(data => {
+            showLoading(false);
+            
             if (data.success) {
-                alert('Region set successfully!');
-                loadRegionTrending(regionId);
+                showSuccess('Region set successfully!');
+                // Refresh trending data
+                loadAllTrendingData();
             } else {
-                alert('Error: ' + data.error);
+                showError('Error: ' + data.error);
             }
         })
         .catch(error => {
+            showLoading(false);
             console.error('Error:', error);
-            alert('Error setting region');
+            showError('Error setting region');
         });
     });
     
-    // Load trending data for selected region
-    function loadRegionTrending(regionId) {
-        loadingSpinner.style.display = 'block';
+    // Utility functions
+    function showLoading(show) {
+        loadingOverlay.style.display = show ? 'flex' : 'none';
+    }
+    
+    function showError(message) {
+        showToast(message, 'error');
+    }
+    
+    function showSuccess(message) {
+        showToast(message, 'success');
+    }
+    
+    function showToast(message, type = 'info') {
+        const toastContainer = document.getElementById('toastContainer');
+        const toastId = 'toast-' + Date.now();
         
-        fetch(`/geographic/api/region/${regionId}/trending/`)
-        .then(response => response.json())
-        .then(data => {
-            loadingSpinner.style.display = 'none';
-            
-            if (data.success) {
-                displayRegionDetails(regionId, data.data);
-            } else {
-                alert('Error loading trending data: ' + data.error);
-            }
-        })
-        .catch(error => {
-            loadingSpinner.style.display = 'none';
-            console.error('Error:', error);
-            alert('Error loading trending data');
+        const toastHTML = `
+            <div class="toast toast-${type}" id="${toastId}" role="alert" aria-live="assertive" aria-atomic="true">
+                <div class="toast-header">
+                    <i class="fas fa-${type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-triangle' : 'info-circle'} me-2"></i>
+                    <strong class="me-auto">${type === 'success' ? 'Success' : type === 'error' ? 'Error' : 'Info'}</strong>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast" aria-label="Close"></button>
+                </div>
+                <div class="toast-body">
+                    ${message}
+                </div>
+            </div>
+        `;
+        
+        toastContainer.insertAdjacentHTML('beforeend', toastHTML);
+        
+        const toastElement = document.getElementById(toastId);
+        const toast = new bootstrap.Toast(toastElement, {
+            autohide: true,
+            delay: type === 'error' ? 5000 : 3000
+        });
+        
+        toast.show();
+        
+        // Remove toast element after it's hidden
+        toastElement.addEventListener('hidden.bs.toast', function() {
+            toastElement.remove();
         });
     }
     
-    // Display region details and trending movies
-    function displayRegionDetails(regionId, movies) {
-        const selectedOption = regionSelect.options[regionSelect.selectedIndex];
-        const regionName = selectedOption.text;
-        
-        regionInfo.innerHTML = `
-            <h6>${regionName}</h6>
-            <p class="text-muted">${movies.length} trending movies</p>
-        `;
-        
-        if (movies.length > 0) {
-            moviesList.innerHTML = movies.map(movie => `
-                <div class="card mb-2">
-                    <div class="card-body p-2">
-                        <h6 class="card-title">${movie.name}</h6>
-                        <p class="card-text small text-muted">
-                            Purchases: ${movie.purchase_count} | 
-                            Score: ${movie.trending_score.toFixed(1)}
-                        </p>
-                        <p class="card-text small">$${movie.price}</p>
-                    </div>
-                </div>
-            `).join('');
-        } else {
-            moviesList.innerHTML = '<p class="text-muted">No trending movies found for this region.</p>';
-        }
-        
-        regionDetails.style.display = 'block';
-    }
-    
-    // Get CSRF token
     function getCookie(name) {
         let cookieValue = null;
         if (document.cookie && document.cookie !== '') {
@@ -165,6 +563,9 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         return cookieValue;
     }
+    
+    // Initialize the map
+    initMap();
 });
 </script>
 {% endblock %}
