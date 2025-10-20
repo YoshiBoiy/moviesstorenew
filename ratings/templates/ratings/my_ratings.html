@@ -1,0 +1,259 @@
+{% extends 'base.html' %}
+
+{% block title %}My Movie Ratings{% endblock %}
+
+{% block content %}
+<!-- Custom CSS for ratings page -->
+<style>
+    .ratings-container {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+        padding: 2rem 0;
+    }
+    
+    .ratings-card {
+        background: white;
+        border-radius: 15px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        overflow: hidden;
+    }
+    
+    .ratings-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 2rem;
+        text-align: center;
+    }
+    
+    .ratings-header h1 {
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+    }
+    
+    .movie-rating-card {
+        background: white;
+        border-radius: 15px;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        transition: all 0.3s ease;
+        overflow: hidden;
+        height: 100%;
+    }
+    
+    .movie-rating-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+    }
+    
+    .movie-poster-small {
+        width: 100%;
+        height: 200px;
+        object-fit: cover;
+    }
+    
+    .movie-poster-placeholder-small {
+        width: 100%;
+        height: 200px;
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #6c757d;
+    }
+    
+    .rating-stars-display {
+        display: flex;
+        gap: 0.2rem;
+        margin: 0.5rem 0;
+    }
+    
+    .rating-stars-display .star {
+        font-size: 1.2rem;
+        color: #ffc107;
+    }
+    
+    .rating-stars-display .star.empty {
+        color: #ddd;
+    }
+    
+    .rating-badge {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 0.25rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: 600;
+    }
+    
+    .empty-state {
+        text-align: center;
+        padding: 4rem 2rem;
+        color: #6c757d;
+    }
+    
+    .empty-state i {
+        font-size: 4rem;
+        margin-bottom: 1rem;
+        opacity: 0.5;
+    }
+    
+    .stats-summary {
+        background: #f8f9fa;
+        border-radius: 10px;
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+    }
+    
+    .stat-item {
+        text-align: center;
+        padding: 1rem;
+    }
+    
+    .stat-number {
+        font-size: 2rem;
+        font-weight: 700;
+        color: #667eea;
+    }
+    
+    .stat-label {
+        font-size: 0.9rem;
+        color: #6c757d;
+        margin-top: 0.25rem;
+    }
+</style>
+
+<div class="ratings-container">
+    <div class="container">
+        <div class="ratings-card">
+            <div class="ratings-header">
+                <h1><i class="fas fa-star me-3"></i>My Movie Ratings</h1>
+                <p class="mb-0">Track and manage your movie ratings</p>
+            </div>
+            
+            <div class="p-4">
+                {% if ratings %}
+                    <!-- Statistics Summary -->
+                    <div class="stats-summary">
+                        <div class="row">
+                            <div class="col-md-3">
+                                <div class="stat-item">
+                                    <div class="stat-number">{{ ratings|length }}</div>
+                                    <div class="stat-label">Total Ratings</div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="stat-item">
+                                    <div class="stat-number">
+                                        {% if ratings %}
+                                            {% widthratio ratings|length 1 1 as total_ratings %}
+                                            {% for rating in ratings %}
+                                                {% if forloop.first %}
+                                                    {% widthratio rating.rating 1 1 as sum %}
+                                                {% else %}
+                                                    {% widthratio rating.rating 1 1 as current_rating %}
+                                                    {% widthratio sum|add:current_rating 1 1 as sum %}
+                                                {% endif %}
+                                            {% endfor %}
+                                            {% widthratio sum total_ratings 1 as average %}
+                                            {{ average|floatformat:1 }}
+                                        {% else %}
+                                            0.0
+                                        {% endif %}
+                                    </div>
+                                    <div class="stat-label">Average Rating</div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="stat-item">
+                                    <div class="stat-number">
+                                        {% for rating in ratings %}
+                                            {% if rating.rating == 5 %}{{ forloop.counter0|add:1 }}{% endif %}
+                                        {% empty %}
+                                            0
+                                        {% endfor %}
+                                    </div>
+                                    <div class="stat-label">5-Star Ratings</div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="stat-item">
+                                    <div class="stat-number">
+                                        {% for rating in ratings %}
+                                            {% if rating.rating >= 4 %}{{ forloop.counter0|add:1 }}{% endif %}
+                                        {% empty %}
+                                            0
+                                        {% endfor %}
+                                    </div>
+                                    <div class="stat-label">4+ Star Ratings</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Ratings Grid -->
+                    <div class="row">
+                        {% for rating in ratings %}
+                            <div class="col-md-6 col-lg-4 mb-4">
+                                <div class="movie-rating-card">
+                                    <div class="position-relative">
+                                        {% if rating.movie.image %}
+                                            <img src="{{ rating.movie.image.url }}" class="movie-poster-small" alt="{{ rating.movie.name }}">
+                                        {% else %}
+                                            <div class="movie-poster-placeholder-small">
+                                                <i class="fas fa-film fa-2x"></i>
+                                            </div>
+                                        {% endif %}
+                                        <div class="position-absolute top-0 end-0 m-2">
+                                            <span class="rating-badge">{{ rating.rating }}/5</span>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="p-3">
+                                        <h6 class="card-title mb-2">{{ rating.movie.name }}</h6>
+                                        <p class="text-muted small mb-2">${{ rating.movie.price }}</p>
+                                        
+                                        <!-- Star Rating Display -->
+                                        <div class="rating-stars-display mb-2">
+                                            {% for i in "12345" %}
+                                                {% if i|add:0 <= rating.rating %}
+                                                    <i class="fas fa-star star"></i>
+                                                {% else %}
+                                                    <i class="far fa-star star empty"></i>
+                                                {% endif %}
+                                            {% endfor %}
+                                        </div>
+                                        
+                                        <div class="small text-muted mb-3">
+                                            <i class="fas fa-calendar me-1"></i>
+                                            Rated on {{ rating.created_at|date:"M d, Y" }}
+                                            {% if rating.updated_at != rating.created_at %}
+                                                <br><i class="fas fa-edit me-1"></i>
+                                                Updated on {{ rating.updated_at|date:"M d, Y" }}
+                                            {% endif %}
+                                        </div>
+                                        
+                                        <div class="d-grid">
+                                            <a href="{% url 'ratings:rate_movie' rating.movie.id %}" class="btn btn-outline-primary btn-sm">
+                                                <i class="fas fa-edit me-1"></i>Edit Rating
+                                            </a>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <!-- Empty State -->
+                    <div class="empty-state">
+                        <i class="fas fa-star"></i>
+                        <h4>No ratings yet</h4>
+                        <p class="mb-4">Start rating movies to see them here and help others discover great content!</p>
+                        <a href="{% url 'movies.index' %}" class="btn btn-primary btn-lg">
+                            <i class="fas fa-film me-2"></i>Browse Movies
+                        </a>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
