@@ -44,6 +44,7 @@ INSTALLED_APPS = [
     'cart',
     'petitions',
     'geographic',
+    'ratings',
 ]
 
 MIDDLEWARE = [

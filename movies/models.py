@@ -11,6 +11,37 @@ class Movie(models.Model):
     def __str__(self):
         return str(self.id) + ' - ' + self.name
 
+    def get_average_rating(self):
+        """Get the average rating for this movie"""
+        try:
+            from ratings.models import RatingAggregate
+            aggregate = RatingAggregate.objects.get(movie=self)
+            return aggregate.average_rating
+        except:
+            return 0.0
+
+    def get_rating_count(self):
+        """Get the total number of ratings for this movie"""
+        try:
+            from ratings.models import RatingAggregate
+            aggregate = RatingAggregate.objects.get(movie=self)
+            return aggregate.total_ratings
+        except:
+            return 0
+
+    def get_rating_stats(self):
+        """Get comprehensive rating statistics for this movie"""
+        try:
+            from ratings.services import RatingService
+            return RatingService.get_movie_rating_stats(self)
+        except:
+            return {
+                'average_rating': 0.0,
+                'total_ratings': 0,
+                'rating_distribution': {1: 0, 2: 0, 3: 0, 4: 0, 5: 0},
+                'last_updated': None
+            }
+
 class Review(models.Model):
     id = models.AutoField(primary_key=True)
     comment = models.CharField(max_length=255)

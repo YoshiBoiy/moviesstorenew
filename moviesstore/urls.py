@@ -27,6 +27,7 @@ urlpatterns = [
     path('cart/', include('cart.urls')),
     path('petitions/', include('petitions.urls')),
     path('geographic/', include('geographic.urls')),
+    path('ratings/', include('ratings.urls')),
 ]
 
 urlpatterns += static(settings.MEDIA_URL,

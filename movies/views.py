@@ -18,10 +18,22 @@ def show(request, id):
     movie = Movie.objects.get(id=id)
     reviews = Review.objects.filter(movie=movie)
 
+    # Get rating information
+    rating_stats = movie.get_rating_stats()
+    user_rating = None
+    if request.user.is_authenticated:
+        try:
+            from ratings.services import RatingService
+            user_rating = RatingService.get_user_rating(request.user, movie)
+        except:
+            pass
+
     template_data = {}
     template_data['title'] = movie.name
     template_data['movie'] = movie
     template_data['reviews'] = reviews
+    template_data['rating_stats'] = rating_stats
+    template_data['user_rating'] = user_rating
     return render(request, 'movies/show.html', {'template_data': template_data})
 
 @login_required
